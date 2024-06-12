@@ -1,0 +1,93 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime
+import threading
+import time
+
+tasks_list = []
+
+def insert_task():
+    task_desc = task_entry.get()
+    date_reminder = date_entry.get()
+    time_reminder = time_entry.get()
+
+    if not task_desc:
+        messagebox.showwarning("Warning", "Task cannot be empty.")
+        return
+
+    try:
+        if date_reminder and time_reminder:
+            reminder_str = f"{date_reminder} {time_reminder}"
+            reminder = datetime.strptime(reminder_str, '%Y-%m-%d %H:%M')
+        else:
+            reminder = None
+
+        tasks_list.append({'description': task_desc, 'reminder': reminder, 'alerted': False})
+        task_view.insert('', 'end', values=(task_desc, reminder.strftime('%Y-%m-%d %H:%M') if reminder else "No reminder"))
+        
+        task_entry.delete(0, tk.END)
+        date_entry.delete(0, tk.END)
+        time_entry.delete(0, tk.END)
+    except ValueError:
+        messagebox.showerror("Error", "Invalid date/time format. Please use YYYY-MM-DD and HH:MM.")
+
+def delete_task():
+    selected_task = task_view.selection()
+    if selected_task:
+        task_view.delete(selected_task)
+        tasks_list.pop(int(selected_task[0]))
+    else:
+        messagebox.showwarning("Warning", "No task selected.")
+
+def reminder_check():
+    while True:
+        current_time = datetime.now()
+        for task in tasks_list:
+            if task['reminder'] and task['reminder'] <= current_time and not task['alerted']:
+                messagebox.showinfo("Reminder", f"Reminder: {task['description']}")
+                task['alerted'] = True
+        time.sleep(10)
+
+def setup_gui():
+    global task_entry, date_entry, time_entry, task_view
+
+    app = tk.Tk()
+    app.title("Task Manager")
+
+    frame = ttk.Frame(app, padding="10")
+    frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+    tk.Label(frame, text="Task:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+    task_entry = ttk.Entry(frame, width=50)
+    task_entry.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+    tk.Label(frame, text="Reminder Date (YYYY-MM-DD):").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+    date_entry = ttk.Entry(frame)
+    date_entry.grid(row=1, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+    tk.Label(frame, text="Reminder Time (HH:MM):").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
+    time_entry = ttk.Entry(frame)
+    time_entry.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+    add_button = ttk.Button(frame, text="Add Task", command=insert_task)
+    add_button.grid(row=3, column=0, columnspan=2, pady=5)
+
+    columns = ("task", "reminder")
+    task_view = ttk.Treeview(frame, columns=columns, show="headings")
+    task_view.heading("task", text="Task")
+    task_view.heading("reminder", text="Reminder")
+    task_view.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+    remove_button = ttk.Button(frame, text="Remove Task", command=delete_task)
+    remove_button.grid(row=5, column=0, columnspan=2, pady=5)
+
+    app.protocol("WM_DELETE_WINDOW", close_app)
+    threading.Thread(target=reminder_check, daemon=True).start()
+    app.mainloop()
+
+def close_app():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        app.destroy()
+
+if __name__ == "__main__":
+    setup_gui()
